@@ -37,7 +37,7 @@ class _SchoolDashboardState extends State<SchoolDashboard>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _load();
   }
 
@@ -101,7 +101,6 @@ class _SchoolDashboardState extends State<SchoolDashboard>
             Tab(icon: Icon(Icons.dashboard), text: 'Overview'),
             Tab(icon: Icon(Icons.video_library), text: 'Videos'),
             Tab(icon: Icon(Icons.local_hospital), text: 'Health'),
-            Tab(icon: Icon(Icons.map_outlined), text: 'Location'),
           ],
         ),
       ),
@@ -122,7 +121,6 @@ class _SchoolDashboardState extends State<SchoolDashboard>
                 _overviewTab(cs),
                 _videosTab(cs),
                 _healthTab(cs),
-                _locationTab(cs),
               ],
             ),
     );
