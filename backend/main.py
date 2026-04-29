@@ -14,10 +14,6 @@ from typing import Optional
 from urllib.parse import quote, urlsplit, urlunsplit
 from urllib.request import Request as UrlRequest, urlopen
 
-import cloudinary
-import cloudinary.api
-import cloudinary.uploader
-
 try:
     import imageio_ffmpeg
 except ImportError:
@@ -44,18 +40,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 load_dotenv()
 
 # ── DATABASE CONFIG ────────────────────────────────────────────────────────────
-database_url = os.getenv("DATABASE_URL")
-
-if not database_url:
-    raise RuntimeError("DATABASE_URL is missing. Set it in .env or hosting platform settings.")
-
-if os.getenv("DATABASE_SSLMODE", "").strip():
-    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-
-    parts = urlsplit(database_url)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query["sslmode"] = os.getenv("DATABASE_SSLMODE", "require").strip() or "require"
-    database_url = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+LOCAL_DB_PATH = Path(__file__).resolve().parent / 'local.db'
+database_url = os.getenv("DATABASE_URL", f"sqlite:///{LOCAL_DB_PATH.as_posix()}")
 
 print(f"DATABASE_URL loaded: {'yes' if database_url else 'no'}")
 
@@ -64,13 +50,7 @@ JWT_SECRET = os.getenv("JWT_SECRET_KEY", "usl-secret-2026")
 JWT_ALGO = "HS256"
 JWT_EXPIRE = timedelta(days=7)
 
-# ── CLOUDINARY CONFIG─────────────────────────────────────
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
-    secure=True,
-)
+
 
 REGIONS      = ['Central', 'Western', 'Eastern', 'Northern']
 SCHOOL_TYPES = ['Primary', 'Secondary', 'Vocational']
@@ -82,17 +62,23 @@ engine       = create_engine(database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base         = declarative_base()
 
-VIDEO_STORAGE_ROOT = Path(__file__).resolve().parent / 'uploads'
+VIDEO_STORAGE_ROOT = Path(__file__).resolve().parent.parent / 'uploads'
 VIDEO_ORIGINAL_DIR = VIDEO_STORAGE_ROOT / 'original'
 VIDEO_RAW_DIR = VIDEO_STORAGE_ROOT / 'raw'
 VIDEO_CONVERTED_DIR = VIDEO_STORAGE_ROOT / 'converted'
 VIDEO_ARCHIVE_DIR = VIDEO_STORAGE_ROOT / 'archive'
+VIDEO_APPROVED_DIR = VIDEO_STORAGE_ROOT / 'approved'
+VIDEO_REJECTED_DIR = VIDEO_STORAGE_ROOT / 'rejected'
+VIDEO_CONSENT_DIR = VIDEO_STORAGE_ROOT / 'consent'
 for _directory in (
     VIDEO_STORAGE_ROOT,
     VIDEO_ORIGINAL_DIR,
     VIDEO_RAW_DIR,
     VIDEO_CONVERTED_DIR,
     VIDEO_ARCHIVE_DIR,
+    VIDEO_APPROVED_DIR,
+    VIDEO_REJECTED_DIR,
+    VIDEO_CONSENT_DIR,
 ):
     _directory.mkdir(parents=True, exist_ok=True)
 
@@ -140,15 +126,7 @@ app.add_middleware(
 )
 
 
-@app.on_event('startup')
-def startup_fix_cloudinary_urls():
-    """Log reminder to fix Cloudinary URLs if needed."""
-    print(
-        '\n=== Video URL Fix ===\n'
-        'If you have videos stored in Cloudinary, call:\n'
-        '  POST /api/admin/fix-video-urls\n'
-        'as an admin user to fix Cloudinary video URLs for browser playback.\n'
-    )
+
 
 
 
@@ -639,115 +617,23 @@ def _video_conversion_source(video: Video) -> str:
 
 
 def _candidate_cloudinary_public_ids_from_path(path_value: str) -> list[str]:
-    raw_value = (path_value or '').strip()
-    if not raw_value:
-        return []
-
-    parsed = urlsplit(raw_value)
-    candidate = parsed.path if parsed.scheme else raw_value
-    if not candidate:
-        return []
-
-    stem = Path(candidate).stem
-    if not stem:
-        return []
-
-    candidates = [
-        stem,
-        f'converted/{stem}',
-        f'uploads/converted/{stem}',
-        f'videos/{stem}',
-    ]
-
-    # Keep order while removing duplicates.
-    seen = set()
-    unique: list[str] = []
-    for item in candidates:
-        if item in seen:
-            continue
-        seen.add(item)
-        unique.append(item)
-    return unique
+    return []
 
 
 def _resolve_cloudinary_url_from_paths(*path_values: str) -> str:
-    all_candidates: list[str] = []
-    for value in path_values:
-        all_candidates.extend(_candidate_cloudinary_public_ids_from_path(value))
-
-    seen = set()
-    ordered_candidates: list[str] = []
-    for candidate in all_candidates:
-        if candidate in seen:
-            continue
-        seen.add(candidate)
-        ordered_candidates.append(candidate)
-
-    for public_id in ordered_candidates:
-        try:
-            cloudinary.api.resource(public_id, resource_type='video', type='upload')
-        except Exception:
-            continue
-
-        transformed, _ = cloudinary.utils.cloudinary_url(
-            public_id,
-            resource_type='video',
-            type='upload',
-            secure=True,
-            format='mp4',
-            transformation='f_mp4,vc_h264,q_auto',
-        )
-        return transformed or ''
-
     return ''
 
 
 def _repair_video_source_from_cloudinary(video: Video, db: Session) -> bool:
-    local_file = (video.file_path or '').strip()
-    local_converted = (video.converted_video_url or '').strip()
-
-    cloud_url = _resolve_cloudinary_url_from_paths(local_converted, local_file)
-    if not cloud_url:
-        return False
-
-    video.converted_video_url = cloud_url
-    video.file_path = cloud_url
-    video.conversion_status = 'completed'
-    video.converted = True
-    db.commit()
     return True
 
 
 def _cloudinary_delivery_mp4_url(public_id: str) -> str:
-    if not public_id:
-        return ''
-    transformed, _ = cloudinary.utils.cloudinary_url(
-        public_id,
-        resource_type='video',
-        type='upload',
-        secure=True,
-        format='mp4',
-        transformation='f_mp4,vc_h264,q_auto',
-    )
-    return transformed or ''
+    return ''
 
 
 def _fetch_cloudinary_video_resources(max_items: int = 500) -> list[dict]:
-    resources: list[dict] = []
-    next_cursor = None
-    while len(resources) < max_items:
-        search = cloudinary.search.Search().expression('resource_type:video').max_results(100)
-        if next_cursor:
-            search = search.next_cursor(next_cursor)
-        payload = search.execute()
-        batch = payload.get('resources') or []
-        if not batch:
-            break
-        resources.extend(batch)
-        next_cursor = payload.get('next_cursor')
-        if not next_cursor:
-            break
-    return resources[:max_items]
+    return []
 
 
 def _extract_timestamp_from_video_path(path_value: str) -> Optional[datetime]:
@@ -776,107 +662,13 @@ def _parse_cloudinary_created_at(value: str) -> Optional[datetime]:
 
 
 def _relink_missing_videos_from_cloudinary(db: Session, dry_run: bool = True) -> dict:
-    resources = _fetch_cloudinary_video_resources(max_items=500)
-    if not resources:
-        return {
-            'updated': 0,
-            'checked': 0,
-            'message': 'No Cloudinary video resources found for relink',
-            'matches': [],
-        }
-
-    indexed = []
-    for item in resources:
-        public_id = (item.get('public_id') or '').strip()
-        if not public_id:
-            continue
-        created_at = _parse_cloudinary_created_at(item.get('created_at') or '')
-        bytes_value = int(item.get('bytes') or 0)
-        indexed.append({'public_id': public_id, 'created_at': created_at, 'bytes': bytes_value})
-
-    linked_urls = {
-        (v.converted_video_url or '').strip()
-        for v in db.query(Video).all()
-        if (v.converted_video_url or '').strip().startswith('http')
-    }
-    used_public_ids = {
-        row['public_id']
-        for row in indexed
-        if _cloudinary_delivery_mp4_url(row['public_id']) in linked_urls
-    }
-
-    candidates = []
-    videos = db.query(Video).order_by(Video.id.asc()).all()
-    for video in videos:
-        current_source = _video_conversion_source(video).strip()
-        if current_source.startswith('http://') or current_source.startswith('https://'):
-            continue
-        if current_source and Path(current_source).exists():
-            continue
-
-        expected_at = _extract_timestamp_from_video_path(video.file_path or '')
-        if expected_at is None and video.upload_timestamp is not None:
-            expected_at = video.upload_timestamp.replace(tzinfo=timezone.utc)
-
-        expected_bytes = int(round((video.file_size_kb or 0) * 1024))
-        best = None
-        best_score = None
-        for row in indexed:
-            public_id = row['public_id']
-            if public_id in used_public_ids:
-                continue
-
-            time_penalty = 0
-            if expected_at is not None and row['created_at'] is not None:
-                time_penalty = abs((row['created_at'] - expected_at).total_seconds())
-            elif expected_at is not None:
-                time_penalty = 86400 * 7
-
-            size_penalty = 0
-            if expected_bytes > 0 and row['bytes'] > 0:
-                size_penalty = abs(row['bytes'] - expected_bytes) / expected_bytes * 3600
-
-            score = time_penalty + size_penalty
-            if best_score is None or score < best_score:
-                best_score = score
-                best = row
-
-        if not best:
-            continue
-
-        # Prevent clearly unrelated matches.
-        if best_score is not None and best_score > 86400 * 3:
-            continue
-
-        delivery_url = _cloudinary_delivery_mp4_url(best['public_id'])
-        if not delivery_url:
-            continue
-
-        candidates.append({
-            'video_id': video.id,
-            'public_id': best['public_id'],
-            'delivery_url': delivery_url,
-            'score': round(float(best_score or 0), 2),
-        })
-        used_public_ids.add(best['public_id'])
-
-    if not dry_run:
-        for item in candidates:
-            video = db.get(Video, item['video_id'])
-            if not video:
-                continue
-            video.file_path = item['delivery_url']
-            video.converted_video_url = item['delivery_url']
-            video.converted = True
-            video.conversion_status = 'completed'
-        db.commit()
-
     return {
-        'updated': 0 if dry_run else len(candidates),
-        'checked': len(videos),
-        'cloudinary_resources': len(indexed),
-        'matches': candidates,
+        'updated': 0,
+        'checked': 0,
+        'cloudinary_resources': 0,
+        'matches': [],
         'dry_run': dry_run,
+        'message': 'Cloud relink is disabled in local-only mode.',
     }
 
 
@@ -1041,55 +833,7 @@ def _is_admin_email(email: str) -> bool:
 
 
 def _to_browser_playable_video_url(url: str) -> str:
-    """Return a Cloudinary delivery URL transformed to MP4/H264 for browser playback."""
-    if not url:
-        return ''
-
-    parsed = urlsplit(url)
-    if 'res.cloudinary.com' not in (parsed.netloc or '').lower():
-        return url
-
-    # Already MP4 delivery; keep as-is so transformation is idempotent.
-    lower_path = (parsed.path or '').lower()
-    if lower_path.endswith('.mp4') and '/video/upload/' in lower_path:
-        return url
-
-    segments = [s for s in parsed.path.split('/') if s]
-    try:
-        upload_idx = segments.index('upload')
-    except ValueError:
-        return url
-
-    if upload_idx < 1 or segments[upload_idx - 1] != 'video':
-        return url
-
-    tail = segments[upload_idx + 1:]
-    if not tail:
-        return url
-
-    version = None
-    version_idx = next((i for i, p in enumerate(tail) if re.fullmatch(r'v\d+', p)), -1)
-    if version_idx >= 0:
-        version = tail[version_idx]
-        public_parts = tail[version_idx + 1:]
-    else:
-        public_parts = tail
-
-    if not public_parts:
-        return url
-
-    public_parts = public_parts.copy()
-    public_parts[-1] = os.path.splitext(public_parts[-1])[0]
-    if not public_parts[-1]:
-        return url
-
-    transformed = segments[:upload_idx + 1] + ['f_mp4,vc_h264,q_auto']
-    if version:
-        transformed.append(version)
-    transformed.extend(public_parts)
-    transformed[-1] = f"{transformed[-1]}.mp4"
-
-    return urlunsplit((parsed.scheme, parsed.netloc, '/' + '/'.join(transformed), parsed.query, parsed.fragment))
+    return url or ''
 
 
 def _legacy_video_playback_url(dim_video: DimVideo) -> str:
@@ -2512,64 +2256,6 @@ def fix_video_urls(
             video.converted = True
     db.commit()
     return {'message': f'Fixed {fixed_count} video URLs', 'fixed_count': fixed_count}
-
-
-@app.post('/api/admin/relink-missing-videos-from-cloudinary')
-def relink_missing_videos_from_cloudinary(
-    dry_run: bool = Query(True),
-    user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Relink missing local video paths to Cloudinary URLs using timestamp/size matching."""
-    try:
-        result = _relink_missing_videos_from_cloudinary(db, dry_run=dry_run)
-        mode = 'previewed' if dry_run else 'updated'
-        result['message'] = f"Cloudinary relink {mode}: {len(result.get('matches', []))} candidate(s)"
-        return result
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f'Cloudinary relink failed: {exc}')
-
-
-@app.post('/api/admin/videos/{video_id}/link-cloudinary')
-def link_video_to_cloudinary(
-    video_id: int,
-    data: dict,
-    user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Manually link a video record to a Cloudinary asset using public_id or URL."""
-    video = db.get(Video, video_id)
-    if not video:
-        raise HTTPException(status_code=404, detail='Video not found')
-
-    cloudinary_url = (data.get('cloudinary_url') or '').strip()
-    public_id = (data.get('public_id') or '').strip()
-
-    if cloudinary_url:
-        resolved = _to_browser_playable_video_url(cloudinary_url)
-    elif public_id:
-        try:
-            cloudinary.api.resource(public_id, resource_type='video', type='upload')
-        except Exception:
-            raise HTTPException(status_code=400, detail='Cloudinary public_id not found')
-        resolved = _cloudinary_delivery_mp4_url(public_id)
-    else:
-        raise HTTPException(status_code=400, detail='Provide cloudinary_url or public_id')
-
-    if not resolved:
-        raise HTTPException(status_code=400, detail='Could not build a playable Cloudinary URL')
-
-    video.file_path = resolved
-    video.converted_video_url = resolved
-    video.converted = True
-    video.conversion_status = 'completed'
-    db.commit()
-
-    return {
-        'message': 'Video linked to Cloudinary successfully',
-        'video_id': video.id,
-        'playback_url': resolved,
-    }
 
 
 #  ENTRY POINT

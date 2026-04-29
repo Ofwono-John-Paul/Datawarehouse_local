@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Web should use localhost; mobile can use your LAN IP via --dart-define.
+  // Local-first fallback. Override with --dart-define=API_BASE_URL=... when needed.
   static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: '',
@@ -12,8 +12,7 @@ class ApiService {
 
   static String get baseUrl {
     if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
-    if (kIsWeb) return 'http://localhost:5000';
-    return 'http://10.10.134.62:5000';
+    return 'http://localhost:5000';
   }
 
   // ── Token helpers ─────────────────────────────────────────────────────────

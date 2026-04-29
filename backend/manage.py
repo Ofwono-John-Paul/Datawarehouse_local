@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from flask import Flask
 from flask_migrate import Migrate
@@ -7,10 +8,8 @@ from flask_sqlalchemy import SQLAlchemy
 import main
 
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not DATABASE_URL:
-	raise RuntimeError("DATABASE_URL is missing. Set it in .env or hosting platform settings.")
+LOCAL_DB_PATH = Path(__file__).resolve().parent / "local.db"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{LOCAL_DB_PATH.as_posix()}")
 
 
 app = Flask(__name__)
