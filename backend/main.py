@@ -1179,8 +1179,10 @@ def login(data: dict, db: Session = Depends(get_db)):
     user  = db.query(User).filter(
         or_(User.username == ident, User.email == ident)
     ).first()
-    if not user or not check_password_hash(user.password, pwd):
-        raise HTTPException(401, detail='Invalid credentials')
+    if not user:
+        raise HTTPException(401, detail=f'User not found: {ident}')
+    if not check_password_hash(user.password, pwd):
+        raise HTTPException(401, detail=f'Invalid password for {user.username}')
 
     # Backfill older accounts so .admin emails always get admin access.
     if user.role != 'ADMIN' and _is_admin_email(user.email):
