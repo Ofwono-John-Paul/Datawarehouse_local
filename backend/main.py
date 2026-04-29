@@ -1056,6 +1056,17 @@ def _apply_video_scope(
     return query
 
 
+def _sqlite_date_trunc(column, granularity: str):
+    """SQLite-compatible date truncation that returns a string in the appropriate format"""
+    if granularity == 'day':
+        return func.strftime('%Y-%m-%d', column)
+    elif granularity == 'week':
+        # Return year-week format for week granularity
+        return func.strftime('%Y-W%W', column)
+    else:  # month
+        return func.strftime('%Y-%m', column)
+
+
 def _period_label(value: datetime, granularity: str) -> str:
     if granularity == 'day':
         return value.strftime('%Y-%m-%d')
@@ -1652,8 +1663,9 @@ def school_analytics(
     pending  = db.query(Video).filter_by(school_id=school_id, verified_status='pending').count()
     rejected = db.query(Video).filter_by(school_id=school_id, verified_status='rejected').count()
 
+    # SQLite-compatible monthly grouping using strftime
     monthly = db.query(
-        func.date_trunc('month', Video.upload_timestamp).label('m'),
+        func.strftime('%Y-%m', Video.upload_timestamp).label('m'),
         func.count().label('c'),
     ).filter(Video.school_id == school_id).group_by('m').order_by('m').all()
 
@@ -1861,7 +1873,7 @@ def admin_overview(
     )
 
     trend_rows = video_scope.with_entities(
-        func.date_trunc(granularity, Video.upload_timestamp).label('period'),
+        _sqlite_date_trunc(Video.upload_timestamp, granularity).label('period'),
         func.count(Video.id).label('uploads'),
     ).group_by('period').order_by('period').all()
 
@@ -2011,7 +2023,7 @@ def admin_schools_analytics(
         timeline_rows = video_scope.outerjoin(School, School.id == Video.school_id).with_entities(
             School.id,
             School.name,
-            func.date_trunc(granularity, Video.upload_timestamp).label('period'),
+            _sqlite_date_trunc(Video.upload_timestamp, granularity).label('period'),
             func.count(Video.id).label('uploads'),
         ).filter(Video.school_id.in_(timeline_school_ids)).group_by(
             School.id,
