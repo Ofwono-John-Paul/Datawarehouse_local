@@ -575,8 +575,11 @@ class ApiService {
     await prefs.setString('username', user['username'] ?? '');
     await prefs.setString('role', user['role'] ?? 'SCHOOL_USER');
     if (user['school'] != null) {
-      await prefs.setInt('school_id', user['school']['id'] ?? 0);
-      await prefs.setString('school_name', user['school']['name'] ?? '');
+      final school = user['school'] as Map;
+      await prefs.setInt('school_id', school['id'] ?? 0);
+      await prefs.setString('school_name', school['name'] ?? '');
+      await prefs.setString('school_district', school['district'] ?? '');
+      await prefs.setString('school_region', school['region'] ?? '');
     }
   }
 
@@ -594,5 +597,15 @@ class ApiService {
   static Future<String> getUsername() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('username') ?? '';
+  }
+
+  static Future<String> getSchoolDistrict() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('school_district') ?? '';
+  }
+
+  static Future<String> getSchoolRegion() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('school_region') ?? '';
   }
 }

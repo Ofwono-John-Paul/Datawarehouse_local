@@ -25,6 +25,7 @@ class _UploadScreenState extends State<UploadScreen> {
   bool _hasConsent = false;
   bool _loading = false;
   bool _resolvingLocation = false;
+  bool _districtLocked = false;
 
   double? _latitude;
   double? _longitude;
@@ -55,6 +56,22 @@ class _UploadScreenState extends State<UploadScreen> {
   void initState() {
     super.initState();
     _sentenceType = _sentenceTypes.first;
+    _prefillSchoolLocation();
+  }
+
+  Future<void> _prefillSchoolLocation() async {
+    final district = await ApiService.getSchoolDistrict();
+    final region = await ApiService.getSchoolRegion();
+    if (!mounted) return;
+    setState(() {
+      if (district.isNotEmpty) {
+        _districtCtrl.text = district;
+        _districtLocked = true;
+      }
+      if (region.isNotEmpty && _regions.contains(region)) {
+        _region = region;
+      }
+    });
   }
 
   Future<void> _pickFile() async {
@@ -384,7 +401,10 @@ class _UploadScreenState extends State<UploadScreen> {
 
   void _resetForm() {
     _glossCtrl.clear();
-    _districtCtrl.clear();
+    // Keep district/region if they were auto-filled from the school registration.
+    if (!_districtLocked) {
+      _districtCtrl.clear();
+    }
     setState(() {
       _selectedFile = null;
       _isLiveRecording = false;
@@ -395,7 +415,10 @@ class _UploadScreenState extends State<UploadScreen> {
       _category = 'Education';
       _language = 'USL';
       _sentenceType = _sentenceTypes.first;
-      _region = 'Central';
+      // Only reset region to default if it wasn't auto-filled.
+      if (!_districtLocked) {
+        _region = 'Central';
+      }
     });
   }
 
@@ -534,24 +557,35 @@ class _UploadScreenState extends State<UploadScreen> {
                         (v) => setState(() => _sentenceType = v!),
                       ),
                       const SizedBox(height: 14),
-                      _dropdown(
-                        'Region',
-                        _region,
-                        _regions,
-                        Icons.map_outlined,
-                        (v) => setState(() => _region = v!),
-                      ),
+                      _districtLocked
+                          ? _lockedField('Region', _region, Icons.map_outlined)
+                          : _dropdown(
+                              'Region',
+                              _region,
+                              _regions,
+                              Icons.map_outlined,
+                              (v) => setState(() => _region = v!),
+                            ),
                       const SizedBox(height: 14),
 
                       // ── District ─────────────────────────────────────────
                       TextFormField(
                         controller: _districtCtrl,
+                        readOnly: _districtLocked,
                         decoration: InputDecoration(
                           labelText: 'District',
                           prefixIcon: const Icon(Icons.location_city),
+                          suffixIcon: _districtLocked
+                              ? const Tooltip(
+                                  message: 'Auto-filled from your school registration',
+                                  child: Icon(Icons.lock_outline, size: 18, color: Colors.grey),
+                                )
+                              : null,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
+                          filled: _districtLocked,
+                          fillColor: _districtLocked ? Colors.grey.shade100 : null,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -771,6 +805,46 @@ class _UploadScreenState extends State<UploadScreen> {
           .map((e) => DropdownMenuItem(value: e, child: Text(e)))
           .toList(),
       onChanged: onChanged,
+    );
+  }
+
+  Widget _lockedField(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(10),
+        color: Colors.grey.shade100,
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey.shade600),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Tooltip(
+            message: 'Auto-filled from your school registration',
+            child: Icon(Icons.lock_outline, size: 18, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
     );
   }
 }
