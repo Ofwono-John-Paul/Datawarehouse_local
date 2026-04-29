@@ -593,7 +593,7 @@ def _public_video_url(video: Video, db: Session = None) -> str:
     if file_path.startswith('/api/'):
         return file_path
 
-    if Path(file_path).exists():
+    if _resolve_video_path(file_path):
         return f'/api/videos/{video.id}/stream'
 
     return file_path
@@ -606,12 +606,14 @@ def _video_conversion_source(video: Video) -> str:
             return converted
         if converted.startswith('/api/'):
             return converted
-        if Path(converted).exists():
-            return converted
+        resolved = _resolve_video_path(converted)
+        if resolved:
+            return str(resolved)
 
     file_path = (video.file_path or '').strip()
     if file_path:
-        return file_path
+        resolved = _resolve_video_path(file_path)
+        return str(resolved) if resolved else file_path
 
     return converted
 
@@ -680,7 +682,7 @@ def _has_recoverable_video_source(video: Video) -> bool:
         return True
     if source.startswith('/api/'):
         return True
-    return Path(source).exists()
+    return _resolve_video_path(source) is not None
 
 
 def _is_video_playable(video: Video) -> bool:
@@ -695,8 +697,8 @@ def _is_video_playable(video: Video) -> bool:
     if path_value.startswith('/api/'):
         return True
 
-    local_path = Path(path_value)
-    return local_path.exists() and local_path.suffix.lower() == '.mp4'
+    local_path = _resolve_video_path(path_value)
+    return local_path is not None and local_path.suffix.lower() == '.mp4'
 
 
 def _queue_existing_video_conversion(video_id: int) -> None:
@@ -836,6 +838,32 @@ def _to_browser_playable_video_url(url: str) -> str:
     return url or ''
 
 
+def _resolve_video_path(path_str: str) -> 'Path | None':
+    """Return an existing Path for a stored video path.
+
+    Stored paths are absolute OS paths captured at upload time.  After a
+    git-clone (or when the project is moved to a different machine / user
+    directory) those absolute paths no longer exist.  This helper first tries
+    the stored path verbatim; if that fails it searches for a file with the
+    same name under the uploads tree so playback keeps working on any clone.
+    """
+    if not path_str or path_str.startswith('http') or path_str.startswith('/api/'):
+        return None
+    p = Path(path_str)
+    if p.exists():
+        return p
+    # Fallback: find the file by name under the known uploads directories.
+    filename = p.name
+    if not filename:
+        return None
+    for directory in (VIDEO_CONVERTED_DIR, VIDEO_APPROVED_DIR,
+                      VIDEO_ORIGINAL_DIR, VIDEO_RAW_DIR, VIDEO_STORAGE_ROOT):
+        candidate = directory / filename
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def _legacy_video_playback_url(dim_video: DimVideo) -> str:
     source = (dim_video.file_path or '').strip()
     if not source:
@@ -848,7 +876,7 @@ def _legacy_video_playback_url(dim_video: DimVideo) -> str:
     if source.startswith('/api/'):
         return source
 
-    if Path(source).exists():
+    if _resolve_video_path(source):
         return f'/api/videos/{dim_video.video_id}/stream'
 
     return ''
@@ -856,12 +884,12 @@ def _legacy_video_playback_url(dim_video: DimVideo) -> str:
 
 def _legacy_video_file_for_stream(dim_video: DimVideo) -> Path:
     source = (dim_video.file_path or '').strip()
-    source_path = Path(source)
-    if not source or not source_path.exists():
+    resolved = _resolve_video_path(source) if source else None
+    if not resolved:
         raise HTTPException(404, detail='Legacy video file not found')
 
-    if source_path.suffix.lower() == '.mp4':
-        return source_path
+    if resolved.suffix.lower() == '.mp4':
+        return resolved
 
     converted_path = VIDEO_CONVERTED_DIR / f'legacy_{dim_video.video_id}.mp4'
     if not converted_path.exists():
@@ -1534,14 +1562,15 @@ def stream_video(
             db.commit()
         return RedirectResponse(url=transformed or video_url, status_code=302)
 
-    file_path = Path(video_url)
-    if not file_path.exists():
+    file_path = _resolve_video_path(video_url)
+    if not file_path:
         raise HTTPException(404, detail='Video file not found')
 
     return FileResponse(
         path=str(file_path),
         media_type='video/mp4',
         filename=file_path.name,
+        headers={'Accept-Ranges': 'bytes'},
     )
 
 
@@ -2191,7 +2220,7 @@ def admin_videos(
 
     def _row(v: Video):
         school = db.get(School, v.school_id) if v.school_id else None
-        playback_url = _to_browser_playable_video_url(v.file_path)
+        playback_url = _public_video_url(v, db)
         return {
             'video_id':       v.id,
             'gloss_label':    v.gloss_label,

@@ -487,6 +487,28 @@ class ApiService {
     } catch (_) {
       body = {};
     }
+    if (res.statusCode == 200 && body is Map<String, dynamic>) {
+      final videos = body['videos'];
+      if (videos is List) {
+        body['videos'] = videos.map((item) {
+          if (item is! Map) return item;
+          final video = Map<String, dynamic>.from(item.cast<String, dynamic>());
+          final id = video['video_id'];
+          final rawUrl = video['playback_url']?.toString() ??
+              video['video_url']?.toString() ??
+              video['file_path']?.toString();
+          final url = getVideoUrl(rawUrl);
+          final resolvedUrl = url.isNotEmpty
+              ? url
+              : (id != null ? '$baseUrl/api/videos/$id/stream' : '');
+          if (resolvedUrl.isNotEmpty) {
+            video['playback_url'] = resolvedUrl;
+            video['video_url'] = resolvedUrl;
+          }
+          return video;
+        }).toList();
+      }
+    }
     return {'statusCode': res.statusCode, 'body': body};
   }
 
