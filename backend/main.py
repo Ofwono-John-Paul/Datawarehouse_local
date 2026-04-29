@@ -569,7 +569,7 @@ def _public_video_url(video: Video, db: Session = None) -> str:
         if converted_path.exists():
             return f'/api/videos/{video.id}/stream'
         if video.converted_video_url.startswith('http://') or video.converted_video_url.startswith('https://'):
-            # Ensure Cloudinary URLs are transformed for browser playback
+            # Keep remote URLs usable for browser playback.
             transformed = _to_browser_playable_video_url(video.converted_video_url)
             if transformed and transformed != video.converted_video_url and db is not None:
                 video.converted_video_url = transformed
@@ -616,23 +616,23 @@ def _video_conversion_source(video: Video) -> str:
     return converted
 
 
-def _candidate_cloudinary_public_ids_from_path(path_value: str) -> list[str]:
+def _candidate_remote_ids_from_path(path_value: str) -> list[str]:
     return []
 
 
-def _resolve_cloudinary_url_from_paths(*path_values: str) -> str:
+def _resolve_remote_url_from_paths(*path_values: str) -> str:
     return ''
 
 
-def _repair_video_source_from_cloudinary(video: Video, db: Session) -> bool:
-    return True
+def _repair_video_source_from_remote(video: Video, db: Session) -> bool:
+    return False
 
 
-def _cloudinary_delivery_mp4_url(public_id: str) -> str:
+def _remote_delivery_mp4_url(public_id: str) -> str:
     return ''
 
 
-def _fetch_cloudinary_video_resources(max_items: int = 500) -> list[dict]:
+def _fetch_remote_video_resources(max_items: int = 500) -> list[dict]:
     return []
 
 
@@ -651,7 +651,7 @@ def _extract_timestamp_from_video_path(path_value: str) -> Optional[datetime]:
         return None
 
 
-def _parse_cloudinary_created_at(value: str) -> Optional[datetime]:
+def _parse_remote_created_at(value: str) -> Optional[datetime]:
     raw = (value or '').strip()
     if not raw:
         return None
@@ -661,14 +661,14 @@ def _parse_cloudinary_created_at(value: str) -> Optional[datetime]:
         return None
 
 
-def _relink_missing_videos_from_cloudinary(db: Session, dry_run: bool = True) -> dict:
+def _relink_missing_videos_from_remote(db: Session, dry_run: bool = True) -> dict:
     return {
         'updated': 0,
         'checked': 0,
-        'cloudinary_resources': 0,
+        'remote_resources': 0,
         'matches': [],
         'dry_run': dry_run,
-        'message': 'Cloud relink is disabled in local-only mode.',
+        'message': 'Remote relink is disabled in local-only mode.',
     }
 
 
@@ -1425,9 +1425,8 @@ def get_video(video_id: int,
                     'verified_status': 'approved'}
         raise HTTPException(404, detail='Video not found')
     if not _is_video_playable(v):
-        # Recover legacy records that still reference old local paths by
-        # resolving the same filename in Cloudinary and persisting that URL.
-        if _repair_video_source_from_cloudinary(v, db):
+        # Recover legacy records that still reference old remote paths.
+        if _repair_video_source_from_remote(v, db):
             db.refresh(v)
             return _fmt_video(v, db)
 
@@ -1487,7 +1486,7 @@ def stream_video(
         )
 
     if not _is_video_playable(video):
-        if _repair_video_source_from_cloudinary(video, db):
+        if _repair_video_source_from_remote(video, db):
             db.refresh(video)
             return RedirectResponse(url=_public_video_url(video, db), status_code=302)
 
@@ -2238,7 +2237,7 @@ def fix_video_urls(
     user: User = Depends(require_admin),
     db:   Session = Depends(get_db),
 ):
-    """Fix Cloudinary video URLs by adding browser-playable transformations."""
+    """Normalize remote video URLs for browser playback."""
     fixed_count = 0
     videos = db.query(Video).all()
     for video in videos:
