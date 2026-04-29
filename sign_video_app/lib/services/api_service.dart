@@ -465,6 +465,31 @@ class ApiService {
     return {'statusCode': res.statusCode, 'body': body};
   }
 
+  static Future<Map<String, dynamic>> getAdminVideos({
+    String status = '',
+    String region = '',
+    int page = 1,
+    int perPage = 100,
+  }) async {
+    final headers = await _authHeaders();
+    final uri = Uri.parse('$baseUrl/api/admin/videos').replace(
+      queryParameters: {
+        if (status.isNotEmpty) 'status': status,
+        if (region.isNotEmpty) 'region': region,
+        'page': page.toString(),
+        'per_page': perPage.toString(),
+      },
+    );
+    final res = await http.get(uri, headers: headers);
+    dynamic body;
+    try {
+      body = jsonDecode(res.body);
+    } catch (_) {
+      body = {};
+    }
+    return {'statusCode': res.statusCode, 'body': body};
+  }
+
   // ── Video Verification ────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> verifyVideo(
     int videoId,

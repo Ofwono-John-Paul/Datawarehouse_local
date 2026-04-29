@@ -76,7 +76,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
         ApiService.getMapData(),
         ApiService.getAdminSchools(),
-        ApiService.getVideos(),
+        ApiService.getAdminVideos(
+          region: _selectedRegion == 'All' ? '' : _selectedRegion,
+        ),
       ]);
 
       if (!mounted) return;

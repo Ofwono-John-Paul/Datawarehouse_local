@@ -1067,7 +1067,10 @@ def _sqlite_date_trunc(column, granularity: str):
         return func.strftime('%Y-%m', column)
 
 
-def _period_label(value: datetime, granularity: str) -> str:
+def _period_label(value, granularity: str) -> str:
+    # SQLite's func.strftime returns a plain string – return it as-is.
+    if isinstance(value, str):
+        return value
     if granularity == 'day':
         return value.strftime('%Y-%m-%d')
     if granularity == 'week':
