@@ -430,48 +430,115 @@ class _UploadScreenState extends State<UploadScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: const Color(0xFFF0F4FF),
       appBar: AppBar(
-        title: const Text('Upload Sign Language Video'),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.upload_file, size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Text('Upload Sign Language Video',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+          ],
+        ),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
+        elevation: 0,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Upload Sign Language Video',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Contribute to the sign language dataset',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 24),
-
-                // ── Card wrapper ───────────────────────────────────────────
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 620),
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+              child: Column(
+                children: [
+                  // ── Header banner ────────────────────────────────────────
+                  Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxWidth: 660),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 28, vertical: 22),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [cs.primary, cs.primary.withValues(alpha: 0.75)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.primary.withValues(alpha: 0.3),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.sign_language,
+                              color: Colors.white, size: 28),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Contribute to the Dataset',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Upload a sign language video to help grow the USL corpus',
+                                style: TextStyle(
+                                    color: Colors.white70, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+                  const SizedBox(height: 24),
+
+                  // ── Form card ────────────────────────────────────────────
+                  Form(
+                    key: _formKey,
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 660),
+                      padding: const EdgeInsets.all(28),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.07),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // section label
+                          _sectionLabel('Sign Details', Icons.info_outline),
+                          const SizedBox(height: 14),
                       // ── Gloss label ──────────────────────────────────────
                       TextFormField(
                         controller: _glossCtrl,
@@ -548,16 +615,18 @@ class _UploadScreenState extends State<UploadScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      _dropdown(
-                        'Sentence Type',
-                        _sentenceType,
-                        _sentenceTypes,
-                        Icons.type_specimen,
-                        (v) => setState(() => _sentenceType = v!),
-                      ),
-                      const SizedBox(height: 14),
-                      _districtLocked
+                          const SizedBox(height: 14),
+                          _dropdown(
+                            'Sentence Type',
+                            _sentenceType,
+                            _sentenceTypes,
+                            Icons.type_specimen,
+                            (v) => setState(() => _sentenceType = v!),
+                          ),
+                          const SizedBox(height: 24),
+                          _sectionLabel('Location', Icons.location_on_outlined),
+                          const SizedBox(height: 14),
+                          _districtLocked
                           ? _lockedField('Region', _region, Icons.map_outlined)
                           : _dropdown(
                               'Region',
@@ -590,36 +659,78 @@ class _UploadScreenState extends State<UploadScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // ── Geotag capture ───────────────────────────────────
-                      OutlinedButton.icon(
-                        onPressed: (_loading || _resolvingLocation)
-                            ? null
-                            : _captureGeoTag,
-                        icon: _resolvingLocation
-                            ? const SizedBox(
-                                height: 16,
-                                width: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                          // ── Geotag capture ─────────────────────────────
+                          OutlinedButton.icon(
+                            onPressed: (_loading || _resolvingLocation)
+                                ? null
+                                : _captureGeoTag,
+                            icon: _resolvingLocation
+                                ? const SizedBox(
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.my_location),
+                            label: Text(
+                              _latitude == null || _longitude == null
+                                  ? 'Capture Current Location'
+                                  : 'Refresh Location',
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 44),
+                              side: BorderSide(
+                                  color: _latitude != null
+                                      ? Colors.green
+                                      : Colors.grey.shade400),
+                              foregroundColor:
+                                  _latitude != null ? Colors.green : null,
+                            ),
+                          ),
+                          if (_latitude != null && _longitude != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: Colors.green.shade200),
                                 ),
-                              )
-                            : const Icon(Icons.my_location),
-                        label: Text(
-                          _latitude == null || _longitude == null
-                              ? 'Capture Current Location'
-                              : 'Refresh Location',
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _latitude != null && _longitude != null
-                            ? 'Geotag: ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)} (source: $_geoSource)'
-                            : 'No geotag yet. Upload can continue without location.',
-                        style: TextStyle(color: Colors.grey[700], fontSize: 12),
-                      ),
-                      const SizedBox(height: 22),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.check_circle,
+                                        size: 16,
+                                        color: Colors.green.shade600),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Geotag captured: ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
+                                        style: TextStyle(
+                                            color: Colors.green.shade700,
+                                            fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                'Optional — upload can proceed without location.',
+                                style: TextStyle(
+                                    color: Colors.grey[500], fontSize: 12),
+                              ),
+                            ),
+                          const SizedBox(height: 24),
+                          _sectionLabel('Video File', Icons.video_file_outlined),
+                          const SizedBox(height: 14),
 
-                      // ── File picker box ──────────────────────────────────
+                          // ── File picker box ────────────────────────────
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(20),
@@ -719,71 +830,119 @@ class _UploadScreenState extends State<UploadScreen> {
                                   ),
                                 ],
                               ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: _hasConsent,
-                        onChanged: _loading
-                            ? null
-                            : (value) =>
-                                  setState(() => _hasConsent = value ?? false),
-                        title: const Text(
-                          'I confirm informed consent was obtained.',
-                        ),
-                        subtitle: const Text(
-                          'Required before upload submission.',
-                        ),
-                        controlAffinity: ListTileControlAffinity.leading,
-                      ),
-                      const SizedBox(height: 28),
-
-                      // ── Upload button ────────────────────────────────────
-                      SizedBox(
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: _loading ? null : _upload,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                          ),
+                          const SizedBox(height: 20),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: _hasConsent
+                                  ? Colors.blue.shade50
+                                  : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _hasConsent
+                                    ? Colors.blue.shade200
+                                    : Colors.grey.shade200,
+                              ),
+                            ),
+                            child: CheckboxListTile(
+                              contentPadding:
+                                  const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 4),
+                              value: _hasConsent,
+                              onChanged: _loading
+                                  ? null
+                                  : (value) => setState(
+                                      () => _hasConsent = value ?? false),
+                              title: const Text(
+                                'I confirm informed consent was obtained.',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14),
+                              ),
+                              subtitle: const Text(
+                                'Required before upload submission.',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              controlAffinity:
+                                  ListTileControlAffinity.leading,
+                              activeColor: Colors.blue.shade600,
                             ),
                           ),
-                          child: _loading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.cloud_upload),
-                                    SizedBox(width: 10),
-                                    Text(
-                                      'Upload Video',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
+                          const SizedBox(height: 28),
+
+                          // ── Upload button ─────────────────────────────────
+                          SizedBox(
+                            height: 54,
+                            child: ElevatedButton(
+                              onPressed: _loading ? null : _upload,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.shade600,
+                                foregroundColor: Colors.white,
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
-                        ),
+                              ),
+                              child: _loading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.cloud_upload, size: 22),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Submit Upload',
+                                          style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.4),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _sectionLabel(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF1565C0)),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1565C0),
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            height: 1,
+            color: const Color(0xFF1565C0).withValues(alpha: 0.15),
+          ),
+        ),
+      ],
     );
   }
 

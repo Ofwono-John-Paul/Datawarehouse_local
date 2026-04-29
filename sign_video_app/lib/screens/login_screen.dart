@@ -65,91 +65,185 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: const Color(0xFFF0F4FF),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(Icons.video_library, size: 72, color: cs.primary),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Sign Video Warehouse',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: cs.primary,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            child: Column(
+              children: [
+                // ── Logo card ─────────────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 32, vertical: 36),
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        cs.primary,
+                        cs.primary.withValues(alpha: 0.8)
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: cs.primary.withValues(alpha: 0.4),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Sign in to continue',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 36),
-                  TextFormField(
-                    controller: _usernameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Username or Email',
-                      prefixIcon: Icon(Icons.person_outline),
-                    ),
-                    validator: (v) => v!.isEmpty ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordCtrl,
-                    obscureText: _obscure,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscure ? Icons.visibility_off : Icons.visibility,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        onPressed: () => setState(() => _obscure = !_obscure),
+                        child: const Icon(Icons.sign_language,
+                            size: 44, color: Colors.white),
                       ),
-                    ),
-                    validator: (v) => v!.isEmpty ? 'Required' : null,
+                      const SizedBox(height: 16),
+                      const Text(
+                        'USL Crowdsource',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Sign Language Video Warehouse',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 28),
-                  ElevatedButton(
-                    onPressed: _loading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: cs.primary,
-                      foregroundColor: cs.onPrimary,
-                    ),
-                    child: _loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                ),
+                const SizedBox(height: 28),
+
+                // ── Form card ─────────────────────────────────────────────
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.07),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Welcome back',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Sign in to continue',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 28),
+                        TextFormField(
+                          controller: _usernameCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Username or Email',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                          validator: (v) => v!.isEmpty ? 'Required' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordCtrl,
+                          obscureText: _obscure,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(_obscure
+                                  ? Icons.visibility_off
+                                  : Icons.visibility),
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
                             ),
-                          )
-                        : const Text('Login'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const RegisterSchoolScreen(),
-                      ),
+                          ),
+                          validator: (v) => v!.isEmpty ? 'Required' : null,
+                        ),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: _loading ? null : _login,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: cs.primary,
+                              foregroundColor: cs.onPrimary,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: _loading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white),
+                                  )
+                                : const Text('Sign In',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Divider(),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const RegisterSchoolScreen()),
+                          ),
+                          icon: const Icon(Icons.school_outlined, size: 18),
+                          label: const Text('Register a School'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 46),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const RegisterScreen()),
+                          ),
+                          child: const Text(
+                              'Individual contributor? Register here'),
+                        ),
+                      ],
                     ),
-                    child: const Text("Register a School"),
                   ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                    ),
-                    child: const Text("Individual? Register here"),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

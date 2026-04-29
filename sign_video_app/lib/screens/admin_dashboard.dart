@@ -1749,8 +1749,35 @@ class _AdminDashboardState extends State<AdminDashboard> {
     List<Map<String, dynamic>> matrix,
   ) {
     if (duplicates.isEmpty) {
-      return const Center(
-        child: Text('No cross-region duplicate glosses found.'),
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle_outline,
+                color: Colors.green.shade600, size: 28),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('No duplicate sign uploads detected',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 15)),
+                  SizedBox(height: 4),
+                  Text(
+                      'All signs in the dataset have unique labels. '
+                      'Keep uploading!',
+                      style: TextStyle(color: Colors.black54, fontSize: 13)),
+                ],
+              ),
+            ),
+          ],
+        ),
       );
     }
 
@@ -1759,81 +1786,231 @@ class _AdminDashboardState extends State<AdminDashboard> {
       regionColumns.add(_safeText(row['region'], fallback: 'Unknown'));
     }
     final columns = regionColumns.toList()..sort();
-    final duplicateRows = duplicates.take(8).toList();
+    final duplicateRows = duplicates.take(15).toList();
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DataTable(
-            headingRowColor: WidgetStateProperty.all(const Color(0xFFE8EEF7)),
-            columns: [
-              const DataColumn(label: Text('Gloss')),
-              const DataColumn(label: Text('Regions')),
-              const DataColumn(label: Text('Duplicates')),
-              ...columns.map((region) => DataColumn(label: Text(region))),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Summary strip ──────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.orange.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded,
+                  color: Colors.orange.shade700, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${duplicates.length} sign label${duplicates.length == 1 ? '' : 's'} '
+                  'with multiple uploads detected. '
+                  'Review and merge duplicates to maintain dataset quality.',
+                  style:
+                      TextStyle(color: Colors.orange.shade900, fontSize: 13),
+                ),
+              ),
             ],
-            rows: duplicateRows.map((row) {
-              final gloss = _safeText(row['gloss_label'], fallback: 'Unknown');
-              final regions = (row['regions_involved'] as List? ?? const [])
-                  .map((value) => value.toString())
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Card list ──────────────────────────────────────────────────────
+        ...duplicateRows.asMap().entries.map((entry) {
+          final index = entry.key;
+          final row = entry.value;
+          final gloss =
+              _safeText(row['gloss_label'], fallback: 'Unknown');
+          final regions =
+              (row['regions_involved'] as List? ?? const [])
+                  .map((v) => v.toString())
                   .toList();
-              final duplicateCount = _toInt(row['duplicate_uploads']);
-              final regionCounts = <String, int>{};
-              for (final entry in matrix) {
-                if (_safeText(entry['gloss_label'], fallback: '') != gloss) {
-                  continue;
-                }
-                regionCounts[_safeText(entry['region'], fallback: 'Unknown')] =
-                    _toInt(entry['uploads']);
-              }
-              final maxValue = regionCounts.values.fold<int>(
-                0,
-                (previous, value) => value > previous ? value : previous,
-              );
-              return DataRow(
-                cells: [
-                  DataCell(Text(gloss)),
-                  DataCell(
-                    Wrap(
-                      spacing: 6,
-                      children: regions
-                          .map((region) => Chip(label: Text(region)))
-                          .toList(),
+          final totalUploads = _toInt(row['total_uploads']);
+          final duplicateCount = _toInt(row['duplicate_uploads']);
+          final schoolCount = _toInt(row['school_count']);
+
+          final regionCounts = <String, int>{};
+          for (final m in matrix) {
+            if (_safeText(m['gloss_label'], fallback: '') != gloss) continue;
+            regionCounts[_safeText(m['region'], fallback: 'Unknown')] =
+                _toInt(m['uploads']);
+          }
+
+          final severity = duplicateCount >= 5
+              ? Colors.red
+              : duplicateCount >= 2
+                  ? Colors.orange
+                  : Colors.amber;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // rank badge
+                  Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: severity.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: severity.shade700,
+                          fontSize: 13),
                     ),
                   ),
-                  DataCell(Text('$duplicateCount')),
-                  ...columns.map((region) {
-                    final value = regionCounts[region] ?? 0;
-                    final intensity = maxValue <= 0
-                        ? 0.08
-                        : (value / maxValue).clamp(0.08, 1.0);
-                    return DataCell(
-                      Container(
-                        width: 54,
-                        height: 28,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Colors.deepOrange.withValues(alpha: intensity),
-                          borderRadius: BorderRadius.circular(6),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                gloss,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: severity.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '$duplicateCount duplicate${duplicateCount == 1 ? '' : 's'}',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: severity.shade800),
+                              ),
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          '$value',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                          ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            _statChip(Icons.upload_outlined,
+                                '$totalUploads total', Colors.blue),
+                            _statChip(Icons.school_outlined,
+                                '$schoolCount school${schoolCount == 1 ? '' : 's'}',
+                                Colors.purple),
+                            ...regions.map((r) => _statChip(
+                                Icons.map_outlined, r, Colors.teal)),
+                          ],
                         ),
-                      ),
-                    );
-                  }),
+                        if (regionCounts.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          _regionBar(regionCounts, severity),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _statChip(IconData icon, String label, MaterialColor color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color.shade600),
+          const SizedBox(width: 4),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11,
+                  color: color.shade700,
+                  fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _regionBar(Map<String, int> regionCounts, MaterialColor color) {
+    final total =
+        regionCounts.values.fold(0, (a, b) => a + b);
+    if (total == 0) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Uploads by region',
+            style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Row(
+            children: regionCounts.entries.map((e) {
+              final frac = (e.value / total).clamp(0.0, 1.0);
+              return Expanded(
+                flex: (frac * 100).round().clamp(1, 100),
+                child: Tooltip(
+                  message: '${e.key}: ${e.value}',
+                  child: Container(
+                    height: 14,
+                    color: color.withValues(
+                        alpha: 0.3 + frac * 0.7),
+                  ),
+                ),
               );
             }).toList(),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 10,
+          children: regionCounts.entries.map((e) {
+            return Text('${e.key}: ${e.value}',
+                style: TextStyle(
+                    fontSize: 10, color: Colors.grey.shade600));
+          }).toList(),
+        ),
+      ],
     );
   }
 

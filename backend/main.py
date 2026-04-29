@@ -1892,12 +1892,15 @@ def admin_overview(
     duplicate_signs = []
     for entry in duplicate_map.values():
         regions_involved = list(entry['regions'].keys())
-        if len(regions_involved) < 2:
+        total = entry['total_uploads']
+        # Flag as duplicate if the same gloss has been uploaded more than once
+        # from any combination of schools/regions.
+        if total < 2:
             continue
         duplicate_signs.append({
             'gloss_label': entry['gloss_label'],
-            'total_uploads': entry['total_uploads'],
-            'duplicate_uploads': max(entry['total_uploads'] - len(regions_involved), 0),
+            'total_uploads': total,
+            'duplicate_uploads': total - 1,   # first is original, rest are duplicates
             'region_count': len(regions_involved),
             'regions_involved': regions_involved,
             'school_count': entry['school_count'],
